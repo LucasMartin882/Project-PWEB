@@ -1,11 +1,11 @@
 <?php
 
-require_once __DIR__ . '/../controllers/Controller.php';
+require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/Category.php';
 require_once __DIR__ . '/../models/News.php';
+
 class NewsController extends Controller
 {
-
   private $categoryModel;
   private $newsModel;
   private $uploadDir;
@@ -16,166 +16,198 @@ class NewsController extends Controller
     $this->newsModel = new News($pdo);
     $this->uploadDir = __DIR__ . '/../uploads/';
 
-    //Cek, kalau folder tidak ada kita buat
     if (!is_dir($this->uploadDir)) {
       mkdir($this->uploadDir, 0777, true);
     }
   }
 
+  private function generateSlug($title, $excludeId = null)
+  {
+    $baseSlug = strtolower(trim($title));
+    $baseSlug = preg_replace('/[^a-z0-9]+/', '-', $baseSlug);
+    $baseSlug = trim($baseSlug, '-');
+    if ($baseSlug === '') {
+      $baseSlug = 'berita';
+    }
+
+    $slug = $baseSlug;
+    $counter = 1;
+    while ($this->newsModel->slugExists($slug, $excludeId)) {
+      $slug = $baseSlug . '-' . $counter;
+      $counter++;
+    }
+    return $slug;
+  }
+
+  private function handleImageUpload($redirectPath)
+  {
+    if (!isset($_FILES['image']) || $_FILES['image']['error'] === UPLOAD_ERR_NO_FILE) {
+      return null;
+    }
+
+    if ($_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+      set_flash('danger', 'Terjadi kesalahan saat mengunggah gambar.');
+      $this->redirect($redirectPath);
+    }
+
+    $originalName = $_FILES['image']['name'];
+    $tmpFile = $_FILES['image']['tmp_name'];
+    $fileExt = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+    $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
+
+    if (!in_array($fileExt, $allowedExt, true)) {
+      set_flash('danger', 'Ekstensi file tidak diizinkan. Hanya jpg, jpeg, png, dan webp yang diperbolehkan.');
+      $this->redirect($redirectPath);
+    }
+
+    $maxSize = 2 * 1024 * 1024; // 2MB
+    if ($_FILES['image']['size'] > $maxSize) {
+      set_flash('danger', 'Ukuran file terlalu besar. Maksimal 2MB.');
+      $this->redirect($redirectPath);
+    }
+
+    $namaFile = uniqid("img_", true) . '.' . $fileExt;
+    if (!move_uploaded_file($tmpFile, $this->uploadDir . $namaFile)) {
+      set_flash('danger', 'Gagal menyimpan file gambar.');
+      $this->redirect($redirectPath);
+    }
+
+    return $namaFile;
+  }
+
+  private function deleteImageFile($filename)
+  {
+    if (!empty($filename)) {
+      $imagePath = $this->uploadDir . $filename;
+      if (file_exists($imagePath) && is_file($imagePath)) {
+        unlink($imagePath);
+      }
+    }
+  }
 
   public function index()
   {
-    $pageTitle = "Daftar Berita";
-    $dataBerita = $this->newsModel->getAll();
     $this->view('news/index', [
-      'pageTitle' => $pageTitle,
-      'dataBerita' => $dataBerita
+      'pageTitle'  => "Daftar Berita",
+      'dataBerita' => $this->newsModel->getAll()
     ]);
   }
 
   public function create()
   {
-    $pageTitle = "Tambah Berita";
-    $categories = $this->categoryModel->getAll();
     $this->view('news/create', [
-      'pageTitle' => $pageTitle,
-      'categories' => $categories
+      'pageTitle'  => "Tambah Berita",
+      'categories' => $this->categoryModel->getAll()
     ]);
   }
 
   public function store()
   {
-    $id_category = $_POST['id_category'];
-    $title = $_POST['title'];
-    $content = $_POST['content'];
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+      $this->redirect('admin/news');
+    }
+
+    $id_category = $_POST['id_category'] ?? '';
+    $title = trim($_POST['title'] ?? '');
+    $content = trim($_POST['content'] ?? '');
     $id_user = $_SESSION['user']['id'];
 
-    // Handle upload file
-    $namaFile = null;
-    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-      $namaFile =  $_FILES['image']['name'];
-      $tmpFile = $_FILES['image']['tmp_name'];
-      $fileExt = strtolower(pathinfo($namaFile, PATHINFO_EXTENSION));
-      $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
-
-      //validasi ekstensi file
-      if (!in_array($fileExt, $allowedExt)) {
-        set_flash('danger', 'Ekstensi file tidak diizinkan. Hanya jpg, jpeg, dan png yang diperbolehkan.');
-        $this->redirect('admin/news/create');
-        exit;
-      }
-
-      //validasi ukuran file : 2MB
-      $maxSize = 2 * 1024 * 1024; // 2MB
-      if ($_FILES['image']['size'] > $maxSize) {
-        set_flash('danger', 'Ukuran file terlalu besar. Maksimal 2MB.');
-        $this->redirect('admin/news/create');
-        exit;
-      }
-
-      $namaFile = uniqid("img_", true) . '.' . $fileExt;
-      move_uploaded_file($tmpFile, $this->uploadDir . $namaFile);
+    if ($title === '' || $content === '' || empty($id_category) || !$this->categoryModel->getById($id_category)) {
+      set_flash('danger', 'Judul, konten, dan kategori wajib diisi dengan valid.');
+      $this->redirect('admin/news/create');
     }
+
+    $namaFile = $this->handleImageUpload('admin/news/create');
+
     $news = [
-      'title' => $title,
-      'content' => $content,
-      'slug' => strtolower(str_replace(' ', '-', $title)),
+      'title'       => $title,
+      'content'     => $content,
+      'slug'        => $this->generateSlug($title),
       'id_category' => $id_category,
-      'id_user' => $id_user,
-      'image' => $namaFile
+      'id_user'     => $id_user,
+      'image'       => $namaFile
     ];
     $this->newsModel->store($news);
     set_flash('success', 'Berita berhasil ditambahkan.');
     $this->redirect('admin/news');
   }
 
-  public function edit($id)
+  public function edit($id = null)
   {
-    $pageTitle = "Edit Berita";
-    $categories = $this->categoryModel->getAll();
-    $news = $this->newsModel->getById($id);
+    if (empty($id)) {
+      set_flash('danger', 'ID berita tidak valid.');
+      $this->redirect('admin/news');
+    }
 
-    #cek apakah newsnya ada
+    $news = $this->newsModel->getById($id);
     if (!$news) {
       set_flash('danger', 'Berita tidak ditemukan.');
       $this->redirect('admin/news');
-      exit;
     }
 
     $this->view('news/edit', [
-      'pageTitle' => $pageTitle,
-      'categories' => $categories,
-      'news' => $news
+      'pageTitle'  => "Edit Berita",
+      'categories' => $this->categoryModel->getAll(),
+      'news'       => $news
     ]);
   }
 
   public function update()
   {
-    $id = $_POST['id'];
-    $id_category = $_POST['id_category'];
-    $title = $_POST['title'];
-    $content = $_POST['content'];
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+      $this->redirect('admin/news');
+    }
+
+    $id = $_POST['id'] ?? '';
+    $existingNews = !empty($id) ? $this->newsModel->getById($id) : false;
+    if (!$existingNews) {
+      set_flash('danger', 'Berita tidak ditemukan.');
+      $this->redirect('admin/news');
+    }
+
+    $id_category = $_POST['id_category'] ?? '';
+    $title = trim($_POST['title'] ?? '');
+    $content = trim($_POST['content'] ?? '');
     $id_user = $_SESSION['user']['id'];
 
-    // Handle upload file
-    $namaFile = null;
-    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-      $namaFile =  $_FILES['image']['name'];
-      $tmpFile = $_FILES['image']['tmp_name'];
-      $fileExt = strtolower(pathinfo($namaFile, PATHINFO_EXTENSION));
-      $allowedExt = ['jpg', 'jpeg', 'png', 'webp'];
-
-      //validasi ekstensi file
-      if (!in_array($fileExt, $allowedExt)) {
-        set_flash('danger', 'Ekstensi file tidak diizinkan. Hanya jpg, jpeg, dan png yang diperbolehkan.');
-        $this->redirect('admin/news/create');
-        exit;
-      }
-
-      //validasi ukuran file : 2MB
-      $maxSize = 2 * 1024 * 1024; // 2MB
-      if ($_FILES['image']['size'] > $maxSize) {
-        set_flash('danger', 'Ukuran file terlalu besar. Maksimal 2MB.');
-        $this->redirect('admin/news/create');
-        exit;
-      }
-
-      $namaFile = uniqid("img_", true) . '.' . $fileExt;
-      move_uploaded_file($tmpFile, $this->uploadDir . $namaFile);
+    if ($title === '' || $content === '' || empty($id_category) || !$this->categoryModel->getById($id_category)) {
+      set_flash('danger', 'Judul, konten, dan kategori wajib diisi dengan valid.');
+      $this->redirect('admin/news/edit/' . $id);
     }
+
+    $namaFile = $this->handleImageUpload('admin/news/edit/' . $id);
+    if ($namaFile !== null) {
+      $this->deleteImageFile($existingNews['image']);
+    }
+
     $news = [
-      'id' => $id,
-      'title' => $title,
-      'content' => $content,
-      'slug' => strtolower(str_replace(' ', '-', $title)),
+      'id'          => $id,
+      'title'       => $title,
+      'content'     => $content,
+      'slug'        => $this->generateSlug($title, $id),
       'id_category' => $id_category,
-      'id_user' => $id_user,
-      'image' => $namaFile
+      'id_user'     => $id_user,
+      'image'       => $namaFile
     ];
     $this->newsModel->update($news);
     set_flash('success', 'Berita berhasil diperbarui.');
     $this->redirect('admin/news');
   }
 
-  public function delete($id)
+  public function delete($id = null)
   {
-    $news = $this->newsModel->getById($id);
+    if (empty($id)) {
+      set_flash('danger', 'ID berita tidak valid.');
+      $this->redirect('admin/news');
+    }
 
-    #cek apakah newsnya ada
+    $news = $this->newsModel->getById($id);
     if (!$news) {
       set_flash('danger', 'Berita tidak ditemukan.');
       $this->redirect('admin/news');
-      exit;
     }
 
-    //hapus file image jika ada
-    if ($news['image']) {
-      $imagePath = $this->uploadDir . $news['image'];
-      if (file_exists($imagePath)) {
-        unlink($imagePath);
-      }
-    }
-
+    $this->deleteImageFile($news['image']);
     $this->newsModel->delete($id);
     set_flash('success', 'Berita berhasil dihapus.');
     $this->redirect('admin/news');

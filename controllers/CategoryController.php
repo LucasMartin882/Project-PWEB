@@ -1,7 +1,9 @@
 <?php
 
+require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/Category.php';
-class CategoryController
+
+class CategoryController extends Controller
 {
   private $categoryModel;
 
@@ -15,70 +17,102 @@ class CategoryController
     $pageTitle = "List Kategori";
     $dataKategori = $this->categoryModel->getAll();
 
-    require __DIR__ . '/../views/layouts/admin_header.php';
-    require __DIR__ . '/../views/category/index.php';
-    require __DIR__ . '/../views/layouts/admin_footer.php';
+    $this->view('category/index', [
+      'pageTitle'    => $pageTitle,
+      'dataKategori' => $dataKategori
+    ]);
   }
 
   public function create()
   {
-    $pageTitle = "Tambah Kategori";
-
-    require __DIR__ . '/../views/layouts/admin_header.php';
-    require __DIR__ . '/../views/category/create.php';
-    require __DIR__ . '/../views/layouts/admin_footer.php';
+    $this->view('category/create', [
+      'pageTitle' => "Tambah Kategori"
+    ]);
   }
+
   public function store()
   {
-    $name = $_POST['name'] ?? '';
-    $description = $_POST['description'] ?? '';
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+      $this->redirect('admin/category');
+    }
+
+    $name = trim($_POST['name'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+
+    if ($name === '') {
+      set_flash('danger', "Nama kategori wajib diisi.");
+      $this->redirect('admin/category/create');
+    }
 
     $this->categoryModel->store($name, $description);
     set_flash('success', "Kategori Berhasil disimpan");
-    header("Location: /admin/category");
-    exit();
+    $this->redirect('admin/category');
   }
 
-  public function delete($id)
+  public function delete($id = null)
   {
-    if (!empty($id)) {
-      $category = $this->categoryModel->getById($id);
-      if ($category) {
-        $this->categoryModel->delete($id);
-        set_flash('success', "Kategori Berhasil dihapus");
-      } else {
-        set_flash('danger', "Kategori tidak ditemukan");
-      }
-    } else {
+    if (empty($id)) {
       set_flash('danger', "ID Kategori tidak valid");
+      $this->redirect('admin/category');
     }
-    header("Location: /admin/category");
-    exit();
-  }
 
-  public function edit($id)
-  {
-    $pageTitle = "Edit Kategori";
     $category = $this->categoryModel->getById($id);
     if (!$category) {
       set_flash('danger', "Kategori tidak ditemukan");
-      header("Location: /admin/category");
-      exit();
+      $this->redirect('admin/category');
     }
-    #kondisi dimana ada kategori
-    require __DIR__ . '/../views/layouts/admin_header.php';
-    require __DIR__ . '/../views/category/update.php';
-    require __DIR__ . '/../views/layouts/admin_footer.php';
+
+    if ($this->categoryModel->countNews($id) > 0) {
+      set_flash('danger', "Kategori tidak dapat dihapus karena masih digunakan oleh berita.");
+      $this->redirect('admin/category');
+    }
+
+    $this->categoryModel->delete($id);
+    set_flash('success', "Kategori Berhasil dihapus");
+    $this->redirect('admin/category');
   }
 
-  public function update(){
+  public function edit($id = null)
+  {
+    if (empty($id)) {
+      set_flash('danger', "ID Kategori tidak valid");
+      $this->redirect('admin/category');
+    }
+
+    $category = $this->categoryModel->getById($id);
+    if (!$category) {
+      set_flash('danger', "Kategori tidak ditemukan");
+      $this->redirect('admin/category');
+    }
+
+    $this->view('category/update', [
+      'pageTitle' => "Edit Kategori",
+      'category'  => $category
+    ]);
+  }
+
+  public function update()
+  {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+      $this->redirect('admin/category');
+    }
+
     $id = $_POST['id'] ?? '';
-    $name = $_POST['name'] ?? '';
-    $description = $_POST['description'] ?? '';
+    $name = trim($_POST['name'] ?? '');
+    $description = trim($_POST['description'] ?? '');
+
+    if (empty($id) || !$this->categoryModel->getById($id)) {
+      set_flash('danger', "Kategori tidak ditemukan");
+      $this->redirect('admin/category');
+    }
+
+    if ($name === '') {
+      set_flash('danger', "Nama kategori wajib diisi.");
+      $this->redirect('admin/category/edit/' . $id);
+    }
 
     $this->categoryModel->update($id, $name, $description);
     set_flash('info', "Kategori Berhasil diubah");
-    header("Location: /admin/category");
-    exit();
+    $this->redirect('admin/category');
   }
 }

@@ -10,7 +10,7 @@ class Category
   # 1.READ : Fungsi untuk mengambil semua data kategori dari database
   public function getAll()
   {
-    $stmt = $this->pdo->prepare("select * from categories order by id desc");
+    $stmt = $this->pdo->prepare("SELECT * FROM categories ORDER BY id DESC");
     $stmt->execute();
     return $stmt->fetchAll();
   }
@@ -18,7 +18,7 @@ class Category
   # 2.READ : Fungsi untuk mengambil data kategori berdasarkan id
   public function getById($id)
   {
-    $stmt = $this->pdo->prepare("select * from categories where id = :id");
+    $stmt = $this->pdo->prepare("SELECT * FROM categories WHERE id = :id");
     $stmt->execute(['id' => $id]);
     return $stmt->fetch();
   }
@@ -26,19 +26,27 @@ class Category
   # 3.CREATE : Fungsi untuk menambahkan data kategori baru
   public function store($name, $description)
   {
-    $stmt = $this->pdo->prepare("insert into categories (name, description) 
-    values (:name, :description)");
-    $stmt->execute(['name' => $name, 'description' => $description]);
+    $stmt = $this->pdo->prepare("INSERT INTO categories (name, description) VALUES (:name, :description)");
+    return $stmt->execute(['name' => $name, 'description' => $description]);
   }
 
   # DELETE
-  public function delete($id){
-    $stmt = $this->pdo->prepare("delete from categories where id = :id");
-    $stmt->execute(['id' => $id]);
+  public function delete($id)
+  {
+    $stmt = $this->pdo->prepare("DELETE FROM categories WHERE id = :id");
+    return $stmt->execute(['id' => $id]);
   }
 
-  public function update($id, $name, $description){
-    $stmt = $this->pdo->prepare("update categories set name = :name, description = :description where id = :id");
-    $stmt->execute(['id' => $id, 'name' => $name, 'description' => $description]);
+  public function update($id, $name, $description)
+  {
+    $stmt = $this->pdo->prepare("UPDATE categories SET name = :name, description = :description WHERE id = :id");
+    return $stmt->execute(['id' => $id, 'name' => $name, 'description' => $description]);
+  }
+
+  public function countNews($id)
+  {
+    $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM news WHERE id_category = :id");
+    $stmt->execute(['id' => $id]);
+    return (int) $stmt->fetchColumn();
   }
 }

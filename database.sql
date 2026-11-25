@@ -1,5 +1,5 @@
 -- Active: 1792113655723@@127.0.0.1@3306@project_pweb_2026_k1
-create DATABASE project_pweb_2026_k1;
+create DATABASE if not exists project_pweb_2026_k1;
 use project_pweb_2026_k1;
 
 create table if not exists categories(

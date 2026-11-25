@@ -25,7 +25,7 @@ function get_flash() {
 }
 
 // Parsing URL
-$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
 if (BASE_URL !== '' && strpos($requestUri, BASE_URL) === 0) {
     $requestUri = substr($requestUri, strlen(BASE_URL));
 }
@@ -35,8 +35,8 @@ $segments  = $cleanPath === '' ? [] : explode('/', $cleanPath);
 $isAdmin = isset($segments[0]) && $segments[0] === 'admin';
 
 if ($isAdmin) {
-    $controllerName = $segments[1] ?? 'kategori';
-    $actionName     = $segments[2] ?? 'index';
+    $controllerName = !empty($segments[1]) ? $segments[1] : 'category';
+    $actionName     = !empty($segments[2]) ? $segments[2] : 'index';
     $paramId        = $segments[3] ?? null;
     if (!isset($_SESSION['user']) && $controllerName !== 'auth') {
         set_flash('danger', 'Silakan login terlebih dahulu!');
@@ -45,22 +45,25 @@ if ($isAdmin) {
     }
 } else {
     $controllerName = 'home';
-    $actionName     = $segments[0] ?? 'index';
+    $actionName     = !empty($segments[0]) ? $segments[0] : 'index';
     $paramId        = $segments[1] ?? null;
-    if ($actionName === '') $actionName = 'index';
 }
 
 $controllerClass = ucfirst($controllerName) . 'Controller';
 $controllerFile  = __DIR__ . '/controllers/' . $controllerClass . '.php';
 
-if (file_exists($controllerFile)) {
+if (preg_match('/^[a-zA-Z0-9_]+$/', $controllerName) && file_exists($controllerFile)) {
     require_once $controllerFile;
-    $controller = new $controllerClass($pdo);
-    if (method_exists($controller, $actionName)) {
-        $controller->$actionName($paramId);
-    } else {
-        die("Method $actionName tidak ditemukan!");
+    if (class_exists($controllerClass)) {
+        $controller = new $controllerClass($pdo);
+        if (preg_match('/^[a-zA-Z0-9_]+$/', $actionName) && is_callable([$controller, $actionName])) {
+            $controller->$actionName($paramId);
+            exit;
+        }
     }
+    http_response_code(404);
+    die("Halaman tidak ditemukan (Method $actionName tidak ditemukan).");
 } else {
-    die("Controller $controllerClass tidak ditemukan!");
+    http_response_code(404);
+    die("Halaman tidak ditemukan (Controller $controllerClass tidak ditemukan).");
 }

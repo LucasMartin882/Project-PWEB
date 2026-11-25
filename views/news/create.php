@@ -1,31 +1,33 @@
 <div class="card">
   <div class="card-header">
-    <h5><?= $pageTitle ?></h5>
+    <h5 class="mb-0"><?= htmlspecialchars($pageTitle) ?></h5>
   </div>
   <div class="card-body">
-    <form action="/admin/news/store" method="post" enctype="multipart/form-data">
+    <form action="<?= url('admin/news/store') ?>" method="post" enctype="multipart/form-data">
       <div class="mb-3">
-        <label for="">Title</label>
-        <input type="text" name="title" class="form-control" required>
+        <label for="title" class="form-label">Title</label>
+        <input type="text" id="title" name="title" class="form-control" required>
       </div>
       <div class="mb-3">
-        <label for="">Content</label>
-        <textarea name="content" id="" class="form-control"></textarea>
+        <label for="content" class="form-label">Content</label>
+        <textarea id="content" name="content" class="form-control" rows="6" required></textarea>
       </div>
       <div class="mb-3">
-        <label for="">Category</label>
-        <select name="id_category" class="form-control" id="">
+        <label for="id_category" class="form-label">Category</label>
+        <select id="id_category" name="id_category" class="form-select" required>
           <option value="" disabled selected>Pilih Kategori</option>
           <?php foreach ($categories as $category): ?>
-            <option value="<?= $category['id'] ?>"><?= $category['name'] ?></option>
-          <?php endforeach ?>
+            <option value="<?= htmlspecialchars((string)$category['id']) ?>"><?= htmlspecialchars($category['name']) ?></option>
+          <?php endforeach; ?>
         </select>
       </div>
       <div class="mb-3">
-        <label for="">Image</label>
-        <input type="file" name="image" class="form-control">
+        <label for="image" class="form-label">Image</label>
+        <input type="file" id="image" name="image" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+        <div class="form-text">Format yang diperbolehkan: jpg, jpeg, png, webp. Maksimal 2MB.</div>
       </div>
-      <input type="submit" value="Simpan" class="btn btn-primary">
+      <a href="<?= url('admin/news') ?>" class="btn btn-secondary">Kembali</a>
+      <button type="submit" class="btn btn-primary">Simpan</button>
     </form>
   </div>
 </div>
