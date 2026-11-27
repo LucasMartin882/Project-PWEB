@@ -23,7 +23,7 @@
                         <strong><?= htmlspecialchars($news['user_name'] ?? 'Admin') ?></strong></span>
                     <span>•</span>
                     <span><i class="fa-regular fa-calendar-days me-1"></i>
-                        <?= date('d F Y', strtotime($news['created_at'])) ?></span>
+                        <?= date('d F Y', strtotime($news['created_at'])) ?>  |  <?= ucwords(waktuLalu($news['created_at'])) ?></span>
                 </div>
             </header>
 

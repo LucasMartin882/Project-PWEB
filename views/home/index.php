@@ -43,7 +43,7 @@
                                         class="badge text-decoration-none bg-primary-subtle text-primary border border-primary-subtle">
                                         <?= htmlspecialchars($n['category_name']) ?>
                                     </a>
-                                    <small class="text-muted"><?= date('d M Y', strtotime($n['created_at'])) ?></small>
+                                    <small class="text-muted"><?= ucwords(waktuLalu($n['created_at'])) ?></small>
                                 </div>
 
                                 <h2 class="card-title h5 fw-bold mb-2">

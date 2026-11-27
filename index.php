@@ -1,6 +1,13 @@
 <?php
 session_start();
+date_default_timezone_set('Asia/Jakarta');
+
+require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/config/database.php';
+
+use Carbon\Carbon;
+
+Carbon::setLocale('id');
 
 // Helper URL & Flash Message
 $scriptDir = dirname($_SERVER['SCRIPT_NAME']);
@@ -22,6 +29,13 @@ function get_flash() {
         return $flash;
     }
     return null;
+}
+
+function waktuLalu($datetime) {
+    if (empty($datetime)) {
+        return '-';
+    }
+    return carbon::parse($datetime,'Asia/Jakarta')->diffForHumans();
 }
 
 // Parsing URL
